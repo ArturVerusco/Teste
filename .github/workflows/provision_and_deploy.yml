@@ -1,0 +1,66 @@
+name: Provision & Deploy
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+      TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: infra/terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: infra/terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: terraform apply -auto-approve
+
+      - name: Get Public IP
+        id: ip
+        working-directory: infra/terraform
+        run: echo "PUBLIC_IP=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
+
+      - name: Show Public IP
+        run: echo "EC2 PUBLIC IP: ${{ steps.ip.outputs.PUBLIC_IP }}"
+
+      - name: Upload project to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.ip.outputs.PUBLIC_IP }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          source: "."
+          target: "/home/ubuntu/app"
+
+      - name: Deploy on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ steps.ip.outputs.PUBLIC_IP }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            sudo apt-get update -y
+            sudo apt-get install -y docker-compose
+            cd /home/ubuntu/app
+            sudo docker compose up -d --build
+            sudo docker ps -a

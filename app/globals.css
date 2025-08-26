@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0b1220;
+  --fg: #e6edf3;
+  --muted: #94a3b8;
+  --primary: #3b82f6;
+  --ring: 0 0 0 4px rgba(59,130,246,0.35);
+}
+
+html, body {
+  height: 100%;
+}
+
+.link {
+  @apply underline hover:no-underline;
+}

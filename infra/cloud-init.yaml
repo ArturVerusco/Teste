@@ -1,0 +1,13 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker ubuntu || true
+  - systemctl enable docker
+  - systemctl start docker
+  - apt-get update
+  - apt-get install -y docker-compose
+  - mkdir -p /home/ubuntu/app
+  - chown -R ubuntu:ubuntu /home/ubuntu/app
